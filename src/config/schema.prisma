@@ -1,0 +1,427 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model EFMigrationsHistory {
+  MigrationId    String @id(map: "PK___EFMigrationsHistory") @db.NVarChar(150)
+  ProductVersion String @db.NVarChar(32)
+
+  @@map("__EFMigrationsHistory")
+}
+
+model ActivityCategories {
+  ID          Int         @id(map: "PK_ActivityCategories") @default(autoincrement())
+  Name        String      @db.NVarChar(100)
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Icon        String      @default("N'", map: "DF__ActivityCa__Icon__69FBBC1F") @db.NVarChar(Max)
+  Suppliers   Suppliers[]
+}
+
+model AspNetRoles {
+  Id               String       @id(map: "PK_AspNetRoles") @db.NVarChar(450)
+  Name             String?      @db.NVarChar(256)
+  NormalizedName   String?      @db.NVarChar(256)
+  ConcurrencyStamp String?      @db.NVarChar(Max)
+  RoleClaims       RoleClaims[]
+  UserRoles        UserRoles[]
+}
+
+model AspNetUserTokens {
+  UserId        String  @db.NVarChar(450)
+  LoginProvider String  @db.NVarChar(450)
+  Name          String  @db.NVarChar(450)
+  Value         String? @db.NVarChar(Max)
+  Users         Users   @relation(fields: [UserId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_AspNetUserTokens_Users_UserId")
+
+  @@id([UserId, LoginProvider, Name], map: "PK_AspNetUserTokens")
+}
+
+model Categories {
+  ID          Int        @id(map: "PK_Categories") @default(autoincrement())
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Description String     @default("N'", map: "DF__Categorie__Descr__7D439ABD") @db.NVarChar(Max)
+  Name        String     @default("N'", map: "DF__Categories__Name__7E37BEF6") @db.NVarChar(Max)
+  Products    Products[]
+}
+
+model Customer {
+  Id           String         @id(map: "PK_Customer") @db.NVarChar(450)
+  Cart         Cart[]
+  Users        Users          @relation(fields: [Id], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Customer_Users_Id")
+  Order        Order[]
+  Products     Products[]
+  Reviews      Reviews[]
+  RFQ          RFQ[]
+  WishlistItem WishlistItem[]
+}
+
+model Images {
+  ID          Int       @id(map: "PK_Images") @default(autoincrement())
+  Url         String    @default("N'", map: "DF__Images__Url__6166761E") @db.NVarChar(450)
+  ProductId   Int?
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Products    Products? @relation(fields: [ProductId], references: [ID], onDelete: NoAction, onUpdate: NoAction, map: "FK_Images_Products_ProductId")
+
+  @@index([ProductId], map: "IX_Images_ProductId")
+  @@index([Url], map: "IX_Images_Url")
+}
+
+model Notification {
+  ID          Int        @id(map: "PK_Notification") @default(autoincrement())
+  Title       String?    @db.NVarChar(Max)
+  Body        String?    @db.NVarChar(Max)
+  SupplierId  String?    @db.NVarChar(450)
+  IsRead      Boolean
+  Type        String?    @db.NVarChar(Max)
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Suppliers   Suppliers? @relation(fields: [SupplierId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Notification_Suppliers_SupplierId")
+
+  @@index([SupplierId], map: "IX_Notification_SupplierId")
+}
+
+model Order {
+  ID            Int         @id(map: "PK_Order") @default(autoincrement())
+  SubTotal      Decimal     @db.Decimal(18, 2)
+  Status        Int
+  SupplierId    String      @db.NVarChar(450)
+  CustomerId    String      @db.NVarChar(450)
+  Deleted       Boolean
+  CreatedDate   DateTime
+  UpdatedDate   DateTime?
+  DeliveryFees  Decimal     @default(0.0, map: "DF__Order__DeliveryF__208CD6FA") @db.Decimal(18, 2)
+  Discount      Decimal     @default(0.0, map: "DF__Order__Discount__2180FB33") @db.Decimal(18, 2)
+  Notes         String      @default("N'", map: "DF__Order__Notes__22751F6C") @db.NVarChar(Max)
+  PaymentMethod String      @default("N'", map: "DF__Order__PaymentMe__236943A5") @db.NVarChar(Max)
+  OrderNumber   String      @default(dbgenerated("00000000-0000-0000-0000-000000000000"), map: "DF__Order__OrderNumb__7849DB76") @db.UniqueIdentifier
+  Customer      Customer    @relation(fields: [CustomerId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Order_Customer_CustomerId")
+  Suppliers     Suppliers   @relation(fields: [SupplierId], references: [Id], onUpdate: NoAction, map: "FK_Order_Suppliers_SupplierId")
+  OrderItem     OrderItem[]
+
+  @@index([CustomerId], map: "IX_Order_CustomerId")
+  @@index([SupplierId], map: "IX_Order_SupplierId")
+}
+
+model OrderItem {
+  ID          Int       @id(map: "PK_OrderItem") @default(autoincrement())
+  ProductId   Int
+  OrderId     Int
+  Quantity    Int
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Order       Order     @relation(fields: [OrderId], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderItem_Order_OrderId")
+  Products    Products  @relation(fields: [ProductId], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_OrderItem_Products_ProductId")
+
+  @@index([OrderId], map: "IX_OrderItem_OrderId")
+  @@index([ProductId], map: "IX_OrderItem_ProductId")
+}
+
+model PaymentMethods {
+  ID                Int                 @id(map: "PK_PaymentMethods") @default(autoincrement())
+  Name              String              @db.NVarChar(100)
+  Deleted           Boolean
+  CreatedDate       DateTime
+  UpdatedDate       DateTime?
+  SupplierId        String?             @db.NVarChar(450)
+  Suppliers         Suppliers?          @relation(fields: [SupplierId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_PaymentMethods_Suppliers_SupplierId")
+  UserPaymentMethod UserPaymentMethod[]
+
+  @@index([SupplierId], map: "IX_PaymentMethods_SupplierId")
+}
+
+model Products {
+  ID               Int                @id(map: "PK_Products") @default(autoincrement())
+  Name             String?            @db.NVarChar(Max)
+  Description      String?            @db.NVarChar(Max)
+  Price            Decimal            @db.Decimal(18, 2)
+  Stock            Int?
+  SupplierId       String?            @db.NVarChar(450)
+  CategoryId       Int
+  Deleted          Boolean
+  CreatedDate      DateTime
+  UpdatedDate      DateTime?
+  CustomerId       String?            @db.NVarChar(450)
+  MinimumStock     Int                @default(0, map: "DF__Product__Minimum__1EA48E88")
+  SKU              String             @default(dbgenerated("00000000-0000-0000-0000-000000000000"), map: "DF__Product__SKU__1F98B2C1") @db.UniqueIdentifier
+  CartItem         CartItem[]
+  Images           Images[]
+  OrderItem        OrderItem[]
+  ProductAttribute ProductAttribute[]
+  Customer         Customer?          @relation(fields: [CustomerId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Product_Customer_CustomerId")
+  Categories       Categories         @relation(fields: [CategoryId], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_Products_Categories_CategoryId")
+  Suppliers        Suppliers?         @relation(fields: [SupplierId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Products_Suppliers_SupplierId")
+  ProductVariant   ProductVariant[]
+  Reviews          Reviews[]
+  WishlistItem     WishlistItem[]
+
+  @@index([CategoryId], map: "IX_Products_CategoryId")
+  @@index([CustomerId], map: "IX_Products_CustomerId")
+  @@index([SupplierId], map: "IX_Products_SupplierId")
+}
+
+model RoleClaims {
+  Id          Int         @id(map: "PK_RoleClaims") @default(autoincrement())
+  RoleId      String      @db.NVarChar(450)
+  ClaimType   String?     @db.NVarChar(Max)
+  ClaimValue  String?     @db.NVarChar(Max)
+  AspNetRoles AspNetRoles @relation(fields: [RoleId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_RoleClaims_AspNetRoles_RoleId")
+
+  @@index([RoleId], map: "IX_RoleClaims_RoleId")
+}
+
+model Suppliers {
+  Id                 String              @id(map: "PK_Suppliers") @db.NVarChar(450)
+  ActivityCategoryId Int?
+  Notification       Notification[]
+  Order              Order[]
+  PaymentMethods     PaymentMethods[]
+  Products           Products[]
+  Rate               Rate[]
+  ActivityCategories ActivityCategories? @relation(fields: [ActivityCategoryId], references: [ID], onDelete: NoAction, onUpdate: NoAction, map: "FK_Suppliers_ActivityCategories_ActivityCategoryId")
+  Users              Users               @relation(fields: [Id], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Suppliers_Users_Id")
+
+  @@index([ActivityCategoryId], map: "IX_Suppliers_ActivityCategoryId")
+}
+
+model sysdiagrams {
+  name         String @db.NVarChar(128)
+  principal_id Int
+  diagram_id   Int    @id(map: "PK__sysdiagr__C2B05B613B2CC484") @default(autoincrement())
+  version      Int?
+  definition   Bytes?
+
+  @@unique([principal_id, name], map: "UK_principal_name")
+}
+
+model UserClaims {
+  Id         Int     @id(map: "PK_UserClaims") @default(autoincrement())
+  UserId     String  @db.NVarChar(450)
+  ClaimType  String? @db.NVarChar(Max)
+  ClaimValue String? @db.NVarChar(Max)
+  Users      Users   @relation(fields: [UserId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserClaims_Users_UserId")
+
+  @@index([UserId], map: "IX_UserClaims_UserId")
+}
+
+model UserLogins {
+  LoginProvider       String  @db.NVarChar(450)
+  ProviderKey         String  @db.NVarChar(450)
+  ProviderDisplayName String? @db.NVarChar(Max)
+  UserId              String  @db.NVarChar(450)
+  Users               Users   @relation(fields: [UserId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserLogins_Users_UserId")
+
+  @@id([LoginProvider, ProviderKey], map: "PK_UserLogins")
+  @@index([UserId], map: "IX_UserLogins_UserId")
+}
+
+model UserRoles {
+  UserId      String      @db.NVarChar(450)
+  RoleId      String      @db.NVarChar(450)
+  AspNetRoles AspNetRoles @relation(fields: [RoleId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserRoles_AspNetRoles_RoleId")
+  Users       Users       @relation(fields: [UserId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserRoles_Users_UserId")
+
+  @@id([UserId, RoleId], map: "PK_UserRoles")
+  @@index([RoleId], map: "IX_UserRoles_RoleId")
+}
+
+model Users {
+  Id                   String                @id(map: "PK_Users") @db.NVarChar(450)
+  Name                 String?               @db.NVarChar(Max)
+  Address              String?               @db.NVarChar(Max)
+  BusinessType         String?               @db.NVarChar(Max)
+  UserName             String?               @db.NVarChar(256)
+  NormalizedUserName   String?               @db.NVarChar(256)
+  Email                String?               @db.NVarChar(256)
+  NormalizedEmail      String?               @db.NVarChar(256)
+  EmailConfirmed       Boolean
+  PasswordHash         String?               @db.NVarChar(Max)
+  SecurityStamp        String?               @db.NVarChar(Max)
+  ConcurrencyStamp     String?               @db.NVarChar(Max)
+  PhoneNumber          String?               @db.NVarChar(Max)
+  PhoneNumberConfirmed Boolean
+  TwoFactorEnabled     Boolean
+  LockoutEnd           DateTime?             @db.DateTimeOffset
+  LockoutEnabled       Boolean
+  AccessFailedCount    Int
+  FcmToken             String?               @db.NVarChar(Max)
+  ImageUrl             String?               @db.NVarChar(Max)
+  AspNetUserTokens     AspNetUserTokens[]
+  Customer             Customer?
+  Suppliers            Suppliers?
+  UserClaims           UserClaims[]
+  UserLogins           UserLogins[]
+  UserPaymentMethod    UserPaymentMethod[]
+  UserRoles            UserRoles[]
+  UserShippingAddress  UserShippingAddress[]
+
+  @@index([NormalizedEmail], map: "EmailIndex")
+}
+
+model ProductAttribute {
+  ID          Int       @id(map: "PK_ProductAttribute") @default(autoincrement())
+  Key         String?   @db.NVarChar(Max)
+  Value       String?   @db.NVarChar(Max)
+  ProductId   Int
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Products    Products  @relation(fields: [ProductId], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductAttribute_Products_ProductId")
+
+  @@index([ProductId], map: "IX_ProductAttribute_ProductId")
+}
+
+model ProductVariant {
+  ID          Int       @id(map: "PK_ProductVariant") @default(autoincrement())
+  Name        String?   @db.NVarChar(Max)
+  Type        String?   @db.NVarChar(Max)
+  CustomPrice Decimal   @db.Decimal(18, 2)
+  Stock       Int
+  ProductId   Int
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Products    Products  @relation(fields: [ProductId], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_ProductVariant_Products_ProductId")
+
+  @@index([ProductId], map: "IX_ProductVariant_ProductId")
+}
+
+model Rate {
+  ID          Int       @id(map: "PK_Rate") @default(autoincrement())
+  RateNumber  Int
+  SupplierId  String    @db.NVarChar(450)
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Suppliers   Suppliers @relation(fields: [SupplierId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Rate_Suppliers_SupplierId")
+
+  @@index([SupplierId], map: "IX_Rate_SupplierId")
+}
+
+model Reviews {
+  ID          Int       @id(map: "PK_Reviews") @default(autoincrement())
+  Rate        Int
+  ProductId   Int
+  CustomerId  String    @db.NVarChar(450)
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Body        String    @default("N'", map: "DF__Reviews__Body__7755B73D") @db.NVarChar(Max)
+  Customer    Customer  @relation(fields: [CustomerId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Reviews_Customer_CustomerId")
+  Products    Products  @relation(fields: [ProductId], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_Reviews_Products_ProductId")
+
+  @@index([CustomerId], map: "IX_Reviews_CustomerId")
+  @@index([ProductId], map: "IX_Reviews_ProductId")
+}
+
+model Cart {
+  ID          Int        @id(map: "PK_Cart") @default(autoincrement())
+  SubTotal    Decimal    @db.Decimal(18, 2)
+  CustomerId  String?    @db.NVarChar(450)
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Customer    Customer?  @relation(fields: [CustomerId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Cart_Customer_CustomerId")
+  CartItem    CartItem[]
+}
+
+model CartItem {
+  ID          Int       @id(map: "PK_CartItem") @default(autoincrement())
+  CartId      Int
+  ProductId   Int
+  Quantity    Int
+  UnitPrice   Decimal   @db.Decimal(18, 2)
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Cart        Cart      @relation(fields: [CartId], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_CartItem_Cart_CartId")
+  Products    Products  @relation(fields: [ProductId], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_CartItem_Products_ProductId")
+
+  @@index([CartId], map: "IX_CartItem_CartId")
+  @@index([ProductId], map: "IX_CartItem_ProductId")
+}
+
+model RFQ {
+  ID                Int             @id(map: "PK_RFQ") @default(autoincrement())
+  CustomerId        String          @db.NVarChar(450)
+  ProductName       String          @db.NVarChar(Max)
+  Description       String          @db.NVarChar(Max)
+  Quantity          Int
+  Unit              String          @db.NVarChar(Max)
+  ShareBusinessCard Boolean
+  Deleted           Boolean
+  CreatedDate       DateTime
+  UpdatedDate       DateTime?
+  Customer          Customer        @relation(fields: [CustomerId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_RFQ_Customer_CustomerId")
+  RfqAttachment     RfqAttachment[]
+
+  @@index([CustomerId], map: "IX_RFQ_CustomerId")
+}
+
+model RfqAttachment {
+  ID          Int       @id(map: "PK_RfqAttachment") @default(autoincrement())
+  RfqId       Int
+  FileUrl     String    @db.NVarChar(Max)
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  RFQ         RFQ       @relation(fields: [RfqId], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_RfqAttachment_RFQ_RfqId")
+
+  @@index([RfqId], map: "IX_RfqAttachment_RfqId")
+}
+
+model UserPaymentMethod {
+  ID              Int            @id(map: "PK_UserPaymentMethod") @default(autoincrement())
+  UserID          String         @db.NVarChar(450)
+  PaymentMethodID Int
+  Deleted         Boolean
+  CreatedDate     DateTime
+  UpdatedDate     DateTime?
+  PaymentMethods  PaymentMethods @relation(fields: [PaymentMethodID], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserPaymentMethod_PaymentMethods_PaymentMethodID")
+  Users           Users          @relation(fields: [UserID], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserPaymentMethod_Users_UserID")
+
+  @@index([PaymentMethodID], map: "IX_UserPaymentMethod_PaymentMethodID")
+  @@index([UserID], map: "IX_UserPaymentMethod_UserID")
+}
+
+model UserShippingAddress {
+  ID          Int       @id(map: "PK_UserShippingAddress") @default(autoincrement())
+  Address     String    @db.NVarChar(Max)
+  Apartment   String    @db.NVarChar(Max)
+  City        String    @db.NVarChar(Max)
+  Region      String    @db.NVarChar(Max)
+  Phone       String    @db.NVarChar(Max)
+  UserId      String    @db.NVarChar(450)
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Users       Users     @relation(fields: [UserId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserShippingAddress_Users_UserId")
+
+  @@index([UserId], map: "IX_UserShippingAddress_UserId")
+}
+
+model WishlistItem {
+  ID          Int       @id(map: "PK_WishlistItem") @default(autoincrement())
+  ProductId   Int
+  CustomerId  String    @db.NVarChar(450)
+  Deleted     Boolean
+  CreatedDate DateTime
+  UpdatedDate DateTime?
+  Customer    Customer  @relation(fields: [CustomerId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_WishlistItem_Customer_CustomerId")
+  Products    Products  @relation(fields: [ProductId], references: [ID], onDelete: Cascade, onUpdate: NoAction, map: "FK_WishlistItem_Products_ProductId")
+
+  @@index([CustomerId], map: "IX_WishlistItem_CustomerId")
+  @@index([ProductId], map: "IX_WishlistItem_ProductId")
+}

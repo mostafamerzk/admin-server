@@ -1,0 +1,40 @@
+{
+  "name": "y",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "an admin panel for connectChain",
+  "main": "y",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prisma:pull": "prisma db pull --schema=src/config/schema.prisma",
+    "prisma:generate": "prisma generate --schema=src/config/schema.prisma",
+    "prisma:studio": "prisma studio --schema=src/config/schema.prisma",
+    "prisma:format": "prisma format --schema=src/config/schema.prisma",
+    "db:sync": "npm run prisma:pull && npm run prisma:generate",
+    "schema:check": "node src/scripts/schema-sync.js",
+    "schema:update": "node src/scripts/update-schema.js",
+    "test:historical": "node test-historical-data.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "author": "Mostafa Merzk",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^6.6.0",
+    "aspnetcore-identity-password-hasher": "^1.0.1",
+    "cloudinary": "^2.6.1",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.1",
+    "nodemailer": "^7.0.3",
+    "otp-generator": "^4.0.1",
+    "prisma": "^6.6.0",
+    "prisma-client": "^0.0.0"
+  }
+}
