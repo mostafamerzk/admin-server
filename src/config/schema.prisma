@@ -185,6 +185,7 @@ model RoleClaims {
 model Suppliers {
   Id                 String              @id(map: "PK_Suppliers") @db.NVarChar(450)
   ActivityCategoryId Int?
+  IsVerified         Boolean             @default(dbgenerated("CONVERT([bit],(0))"), map: "DF__Suppliers__IsVer__1E6F845E")
   Notification       Notification[]
   Order              Order[]
   PaymentMethods     PaymentMethods[]

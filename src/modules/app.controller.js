@@ -14,6 +14,7 @@ import customerRoutes from './Customers/customers.routes.js';
 import orderRoutes from './Orders/orders.routes.js';
 import supplierRoutes from './Suppliers/suppliers.routes.js';
 import productRoutes from './Products/products.routes.js';
+import categoryRoutes from './Categories/categories.routes.js';
 
 const bootstrap = async (app, express) => {
     
@@ -38,6 +39,7 @@ const bootstrap = async (app, express) => {
     app.use('/api/orders', orderRoutes);
     app.use('/api/suppliers', supplierRoutes);
     app.use('/api/products', productRoutes);
+    app.use('/api/categories', categoryRoutes);
 
     //handle unhandled routes/endpoints
     app.use('*', (req, res) => {
