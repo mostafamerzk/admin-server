@@ -5,6 +5,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  updateProductStatus,
   uploadProductImages,
   deleteProductImage
 } from './products.controller.js';
@@ -17,6 +18,7 @@ import {
   getProductSchema,
   createProductSchema,
   updateProductSchema,
+  updateProductStatusSchema,
   deleteImageSchema,
   deleteImageByUrlSchema
 } from './products.validation.js';
@@ -78,6 +80,17 @@ router.delete(
   isAuthenticated,
   validation(getProductSchema, 'params'),
   deleteProduct
+);
+
+// @route   PUT /api/products/:id/status
+// @desc    Update product status (active/inactive)
+// @access  Private
+router.put(
+  '/:id/status',
+  isAuthenticated,
+  validation(getProductSchema, 'params'),
+  validation(updateProductStatusSchema, 'body'),
+  updateProductStatus
 );
 
 // @route   POST /api/products/:id/images

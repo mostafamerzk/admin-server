@@ -1,4 +1,5 @@
 import { prisma } from '../../config/prismaClient.js';
+import { buildProductWhereClause, buildProductOrderBy, calculatePagination } from '../../utils/product-filtering.js';
 
 /**
  * Products Service
@@ -10,61 +11,22 @@ import { prisma } from '../../config/prismaClient.js';
  * Get products with filtering and pagination
  */
 export const getProductsService = async (filters) => {
-  const { page, limit, search, category, supplierId, inStock, sort, order } = filters;
-  
+  const { page, limit, search, category, supplierId, inStock, deleted, sort, order } = filters;
+
   // Calculate pagination
   const skip = (page - 1) * limit;
-  
-  // Build where clause
-  const whereClause = {
-    Deleted: false
-  };
-  
-  // Add search filter (search in Name and SKU)
-  if (search && search.trim()) {
-    whereClause.OR = [
-      {
-        Name: {
-          contains: search.trim(),
-          mode: 'insensitive'
-        }
-      },
-      {
-        SKU: {
-          contains: search.trim(),
-          mode: 'insensitive'
-        }
-      }
-    ];
-  }
-  
-  // Add category filter
-  if (category) {
-    whereClause.CategoryId = category;
-  }
-  
-  // Add supplier filter
-  if (supplierId) {
-    whereClause.SupplierId = supplierId;
-  }
-  
-  // Add stock filter
-  if (inStock !== undefined) {
-    if (inStock) {
-      whereClause.Stock = {
-        gt: 0
-      };
-    } else {
-      whereClause.OR = [
-        { Stock: { lte: 0 } },
-        { Stock: null }
-      ];
-    }
-  }
-  
-  // Build order by clause
-  const orderBy = {};
-  orderBy[sort] = order;
+
+  // Use shared filtering logic for consistency
+  const whereClause = buildProductWhereClause({
+    search,
+    category,
+    supplierId,
+    inStock,
+    deleted
+  });
+
+  // Use shared order by logic
+  const orderBy = buildProductOrderBy(sort, order);
   
   // Execute query
   const [products, total] = await Promise.all([
@@ -101,34 +63,34 @@ export const getProductsService = async (filters) => {
           }
         },
         Images: {
-          where: { Deleted: false },
           select: {
             ID: true,
-            Url: true
+            Url: true,
+            Deleted: true // Include deleted status for images too
           }
         },
         ProductAttribute: {
-          where: { Deleted: false },
           select: {
             ID: true,
             Key: true,
-            Value: true
+            Value: true,
+            Deleted: true // Include deleted status for attributes too
           }
         },
         ProductVariant: {
-          where: { Deleted: false },
           select: {
             ID: true,
             Name: true,
             Type: true,
             CustomPrice: true,
-            Stock: true
+            Stock: true,
+            Deleted: true // Include deleted status for variants too
           }
         }
       },
-      orderBy,
-      skip,
-      take: limit
+      orderBy: {
+        ID: 'asc' // Order by ID for consistent results
+      }
     }),
     prisma.products.count({
       where: whereClause
@@ -137,12 +99,7 @@ export const getProductsService = async (filters) => {
   
   return {
     products,
-    pagination: {
-      page,
-      limit,
-      total,
-      pages: Math.ceil(total / limit)
-    }
+    pagination: calculatePagination(page, limit, total)
   };
 };
 
@@ -701,4 +658,80 @@ export const deleteProductImageService = async (productId, imageId) => {
     imageUrl: deletedImage.Url,
     productId: deletedImage.ProductId
   };
+};
+
+/**
+ * Update product status (active/inactive)
+ */
+export const updateProductStatusService = async (productId, status) => {
+  // Check if product exists
+  const existingProduct = await prisma.products.findUnique({
+    where: { ID: productId }
+  });
+
+  if (!existingProduct) {
+    throw new Error('Product not found');
+  }
+
+  // Map status to Deleted field
+  const isDeleted = status === 'inactive';
+
+  // Check if product is already in the requested status
+  if (existingProduct.Deleted === isDeleted) {
+    throw new Error(`Product is already ${status}`);
+  }
+
+  // Update product status
+  const updatedProduct = await prisma.products.update({
+    where: { ID: productId },
+    data: {
+      Deleted: isDeleted,
+      UpdatedDate: new Date()
+    },
+    include: {
+      Images: {
+        where: { Deleted: false },
+        select: { Url: true }
+      },
+      ProductAttribute: {
+        where: { Deleted: false },
+        select: { ID: true, Key: true, Value: true }
+      },
+      ProductVariant: {
+        where: { Deleted: false },
+        select: { ID: true, Name: true, Type: true, CustomPrice: true, Stock: true }
+      },
+      Categories: {
+        select: { ID: true, Name: true, Description: true }
+      },
+      Suppliers: {
+        include: {
+          Users: {
+            select: { Name: true, Email: true, PhoneNumber: true }
+          }
+        }
+      },
+      Customer: {
+        include: {
+          Users: {
+            select: { Name: true, Email: true }
+          }
+        }
+      },
+      Reviews: {
+        where: { Deleted: false },
+        include: {
+          Customer: {
+            include: {
+              Users: {
+                select: { Name: true }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  return updatedProduct;
 };

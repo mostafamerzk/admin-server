@@ -65,8 +65,8 @@ export const getProductsSchema = Joi.object({
     .optional(),
   
   sort: Joi.string()
-    .valid('Name', 'SKU', 'Price', 'Stock', 'CreatedDate', 'UpdatedDate')
-    .default('CreatedDate')
+    .valid('name', 'sku', 'price', 'stock', 'createdAt', 'updatedAt')
+    .default('createdAt')
     .optional(),
   
   order: Joi.string()
@@ -441,4 +441,13 @@ export const deleteImageByUrlSchema = Joi.object({
     })
 });
 
-
+// Update product status validation schema
+export const updateProductStatusSchema = Joi.object({
+  status: Joi.string()
+    .valid('active', 'inactive')
+    .required()
+    .messages({
+      'any.required': 'Status is required',
+      'any.only': 'Status must be either "active" or "inactive"'
+    })
+});

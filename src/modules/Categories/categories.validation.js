@@ -13,20 +13,27 @@ export const createCategorySchema = Joi.object({
     'string.max': 'Category name must not exceed 255 characters',
     'any.required': 'Category name is required'
   }),
-  
+
   description: Joi.string().max(1000).required().messages({
     'string.empty': 'Description is required',
     'string.max': 'Description must not exceed 1000 characters',
     'any.required': 'Description is required'
   }),
-  
+
   status: Joi.string().valid('active', 'inactive').default('active').messages({
     'any.only': 'Status must be either active or inactive'
   }),
-  
-  image: Joi.string().uri().optional().allow('').messages({
-    'string.uri': 'Image must be a valid URL'
-  })
+
+  // Image URL field for when image is provided as URL string instead of file
+  imageUrl: Joi.string().uri().optional().messages({
+    'string.uri': 'Image URL must be a valid URL'
+  }),
+
+  // File field for image uploads (added by multer middleware)
+  file: Joi.any().optional()
+
+  // Note: Image file uploads are handled by multer middleware
+  // Either image file or imageUrl is required - validation handled in controller
 });
 
 // Update category validation schema
@@ -36,19 +43,17 @@ export const updateCategorySchema = Joi.object({
     'string.min': 'Category name must be at least 1 character long',
     'string.max': 'Category name must not exceed 255 characters'
   }),
-  
+
   description: Joi.string().max(1000).optional().messages({
     'string.empty': 'Description cannot be empty',
     'string.max': 'Description must not exceed 1000 characters'
   }),
-  
+
   status: Joi.string().valid('active', 'inactive').optional().messages({
     'any.only': 'Status must be either active or inactive'
-  }),
-  
-  image: Joi.string().uri().optional().allow('').messages({
-    'string.uri': 'Image must be a valid URL'
   })
+
+  // Note: Image uploads are handled by separate endpoint
 });
 
 // Get categories validation schema (query parameters)

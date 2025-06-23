@@ -325,6 +325,80 @@ export const createOrderService = async (orderData) => {
 };
 
 /**
+ * Update order
+ */
+export const updateOrderService = async (orderId, orderData) => {
+  // Check if order exists
+  const existingOrder = await getOrderByIdService(orderId);
+  if (!existingOrder) {
+    throw new Error('Order not found');
+  }
+
+  const {
+    SupplierId,
+    DeliveryFees,
+    Discount,
+    Notes,
+    PaymentMethod
+  } = orderData;
+
+  // Prepare update data
+  const updateData = {
+    UpdatedDate: new Date()
+  };
+
+  // Add fields if provided
+  if (SupplierId !== undefined) updateData.SupplierId = SupplierId;
+  if (DeliveryFees !== undefined) updateData.DeliveryFees = DeliveryFees;
+  if (Discount !== undefined) updateData.Discount = Discount;
+  if (Notes !== undefined) updateData.Notes = Notes;
+  if (PaymentMethod !== undefined) updateData.PaymentMethod = PaymentMethod;
+
+  // Update order
+  await prisma.order.update({
+    where: { ID: orderId },
+    data: updateData
+  });
+
+  // Return updated order with full details
+  return await getOrderByIdService(orderId);
+};
+
+/**
+ * Delete order (soft delete)
+ */
+export const deleteOrderService = async (orderId) => {
+  // Check if order exists
+  const existingOrder = await getOrderByIdService(orderId);
+  if (!existingOrder) {
+    throw new Error('Order not found');
+  }
+
+  // Soft delete order and its items
+  await prisma.$transaction(async (tx) => {
+    // Soft delete order items
+    await tx.orderItem.updateMany({
+      where: { OrderId: orderId },
+      data: {
+        Deleted: true,
+        UpdatedDate: new Date()
+      }
+    });
+
+    // Soft delete order
+    await tx.order.update({
+      where: { ID: orderId },
+      data: {
+        Deleted: true,
+        UpdatedDate: new Date()
+      }
+    });
+  });
+
+  return true;
+};
+
+/**
  * Update order status
  */
 export const updateOrderStatusService = async (orderId, statusData) => {
@@ -338,15 +412,15 @@ export const updateOrderStatusService = async (orderId, statusData) => {
 
   // Validate status transition (basic validation)
   const currentStatus = existingOrder.Status;
-  
+
   // Prevent updating to same status
   if (currentStatus === status) {
     throw new Error('Order is already in this status');
   }
 
-  // Prevent updating cancelled or delivered orders
-  if (currentStatus === 4 || currentStatus === 3) {
-    throw new Error('Cannot update status of cancelled or delivered orders');
+  // Prevent updating completed orders
+  if (currentStatus === 3) {
+    throw new Error('Cannot update status of completed orders');
   }
 
   // Prepare update data
@@ -361,9 +435,93 @@ export const updateOrderStatusService = async (orderId, statusData) => {
   }
 
   // Update order
-  const updatedOrder = await prisma.order.update({
+  await prisma.order.update({
     where: { ID: orderId },
     data: updateData
+  });
+
+  // Return updated order with full details
+  return await getOrderByIdService(orderId);
+};
+
+/**
+ * Approve order (set status to approved)
+ */
+export const approveOrderService = async (orderId) => {
+  // Check if order exists
+  const existingOrder = await getOrderByIdService(orderId);
+  if (!existingOrder) {
+    throw new Error('Order not found');
+  }
+
+  // Check if order can be approved (only pending orders)
+  if (existingOrder.Status !== 0) {
+    throw new Error('Cannot approve order that is not pending');
+  }
+
+  // Update order status to approved (1)
+  await prisma.order.update({
+    where: { ID: orderId },
+    data: {
+      Status: 1,
+      UpdatedDate: new Date()
+    }
+  });
+
+  // Return updated order with full details
+  return await getOrderByIdService(orderId);
+};
+
+/**
+ * Reject order (set status to rejected)
+ */
+export const rejectOrderService = async (orderId) => {
+  // Check if order exists
+  const existingOrder = await getOrderByIdService(orderId);
+  if (!existingOrder) {
+    throw new Error('Order not found');
+  }
+
+  // Check if order can be rejected (only pending or approved orders)
+  if (existingOrder.Status !== 0 && existingOrder.Status !== 1) {
+    throw new Error('Cannot reject order that is not pending or approved');
+  }
+
+  // Update order status to rejected (2)
+  await prisma.order.update({
+    where: { ID: orderId },
+    data: {
+      Status: 2,
+      UpdatedDate: new Date()
+    }
+  });
+
+  // Return updated order with full details
+  return await getOrderByIdService(orderId);
+};
+
+/**
+ * Complete order (set status to completed)
+ */
+export const completeOrderService = async (orderId) => {
+  // Check if order exists
+  const existingOrder = await getOrderByIdService(orderId);
+  if (!existingOrder) {
+    throw new Error('Order not found');
+  }
+
+  // Check if order can be completed (only approved orders)
+  if (existingOrder.Status !== 1) {
+    throw new Error('Cannot complete order that is not approved');
+  }
+
+  // Update order status to completed (3)
+  await prisma.order.update({
+    where: { ID: orderId },
+    data: {
+      Status: 3,
+      UpdatedDate: new Date()
+    }
   });
 
   // Return updated order with full details

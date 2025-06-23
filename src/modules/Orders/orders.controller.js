@@ -3,13 +3,18 @@ import {
   getOrdersService,
   getOrderByIdService,
   createOrderService,
-  updateOrderStatusService
+  updateOrderService,
+  deleteOrderService,
+  updateOrderStatusService,
+  approveOrderService,
+  rejectOrderService,
+  completeOrderService
 } from './orders.service.js';
 
 /**
  * Orders Controller
- * All responses use exact field names from the Order Prisma model
- * Maps database fields to API response format
+ * Updated to match the new API requirements with proper data mapping
+ * Maps database fields to frontend-expected API response format
  */
 
 /**
@@ -18,63 +23,50 @@ import {
 const getStatusString = (status) => {
   const statusMap = {
     0: 'pending',
-    1: 'processing', 
-    2: 'shipped',
-    3: 'delivered',
-    4: 'cancelled'
+    1: 'approved',
+    2: 'rejected',
+    3: 'completed'
   };
-  return statusMap[status] || 'unknown';
+  return statusMap[status] || 'pending';
 };
 
 /**
  * Map database order to API response format
+ * Updated to match frontend expected structure
  */
 const mapOrderToResponse = (order) => {
   if (!order) return null;
 
-  // Calculate total
-  const total = parseFloat(order.SubTotal) + parseFloat(order.DeliveryFees) - parseFloat(order.Discount);
+  // Calculate total amount
+  const totalAmount = parseFloat(order.SubTotal) + parseFloat(order.DeliveryFees) - parseFloat(order.Discount);
 
   return {
     id: order.ID,
-    orderNumber: order.OrderNumber,
+    customerName: order.Customer?.Users?.Name || '',
+    supplierName: order.Suppliers?.Users?.Name || '',
+    totalAmount: totalAmount,
     status: getStatusString(order.Status),
-    statusCode: order.Status,
-    subTotal: parseFloat(order.SubTotal),
-    deliveryFees: parseFloat(order.DeliveryFees),
-    discount: parseFloat(order.Discount),
-    total: total,
-    notes: order.Notes,
-    paymentMethod: order.PaymentMethod,
-    createdDate: order.CreatedDate,
-    updatedDate: order.UpdatedDate,
-    customer: order.Customer ? {
-      id: order.Customer.Id,
-      name: order.Customer.Users?.Name,
-      email: order.Customer.Users?.Email,
-      phone: order.Customer.Users?.PhoneNumber,
-      address: order.Customer.Users?.Address
-    } : null,
-    supplier: order.Suppliers ? {
-      id: order.Suppliers.Id,
-      name: order.Suppliers.Users?.Name,
-      email: order.Suppliers.Users?.Email,
-      phone: order.Suppliers.Users?.PhoneNumber,
-      address: order.Suppliers.Users?.Address
-    } : null,
+    orderDate: order.CreatedDate?.toISOString() || '',
+    customerId: order.CustomerId,
+    supplierId: order.SupplierId,
+    orderNumber: order.OrderNumber,
+    paymentMethod: order.PaymentMethod || '',
+    createdAt: order.CreatedDate?.toISOString() || '',
+    updatedAt: order.UpdatedDate?.toISOString() || null,
+    notes: order.Notes || '',
+    shippingAddress: {
+      address: order.Customer?.Users?.Address || ''
+    },
+    billingAddress: {
+      address: order.Customer?.Users?.Address || 'Same as shipping address'
+    },
     items: order.OrderItem ? order.OrderItem.map(item => ({
       id: item.ID,
-      productId: item.ProductId,
+      name: item.Products?.Name || '',
       quantity: item.Quantity,
-      product: item.Products ? {
-        id: item.Products.ID,
-        name: item.Products.Name,
-        description: item.Products.Description,
-        price: parseFloat(item.Products.Price),
-        sku: item.Products.SKU,
-        stock: item.Products.Stock
-      } : null,
-      lineTotal: item.Products ? parseFloat(item.Products.Price) * item.Quantity : 0
+      unitPrice: parseFloat(item.Products?.Price || 0),
+      description: item.Products?.Description || '',
+      sku: item.Products?.SKU || ''
     })) : []
   };
 };
@@ -180,6 +172,61 @@ export const createOrder = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Update order
+ * @route   PUT /api/orders/:id
+ * @access  Private
+ */
+export const updateOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const orderId = parseInt(id);
+
+  try {
+    const order = await updateOrderService(orderId, req.body);
+
+    res.status(200).json({
+      success: true,
+      message: 'Order updated successfully',
+      data: mapOrderToResponse(order)
+    });
+  } catch (error) {
+    if (error.message === 'Order not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+    throw error;
+  }
+});
+
+/**
+ * @desc    Delete order
+ * @route   DELETE /api/orders/:id
+ * @access  Private
+ */
+export const deleteOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const orderId = parseInt(id);
+
+  try {
+    await deleteOrderService(orderId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Order deleted successfully'
+    });
+  } catch (error) {
+    if (error.message === 'Order not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+    throw error;
+  }
+});
+
+/**
  * @desc    Update order status
  * @route   PUT /api/orders/:id/status
  * @access  Private
@@ -203,8 +250,110 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
         message: 'Order not found'
       });
     }
-    if (error.message.includes('already in this status') || 
+    if (error.message.includes('already in this status') ||
         error.message.includes('Cannot update status')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+    throw error;
+  }
+});
+
+/**
+ * @desc    Approve order
+ * @route   PUT /api/orders/:id/approve
+ * @access  Private
+ */
+export const approveOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const orderId = parseInt(id);
+
+  try {
+    const order = await approveOrderService(orderId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Order approved successfully',
+      data: mapOrderToResponse(order)
+    });
+  } catch (error) {
+    if (error.message === 'Order not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+    if (error.message.includes('Cannot approve')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+    throw error;
+  }
+});
+
+/**
+ * @desc    Reject order
+ * @route   PUT /api/orders/:id/reject
+ * @access  Private
+ */
+export const rejectOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const orderId = parseInt(id);
+
+  try {
+    const order = await rejectOrderService(orderId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Order rejected successfully',
+      data: mapOrderToResponse(order)
+    });
+  } catch (error) {
+    if (error.message === 'Order not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+    if (error.message.includes('Cannot reject')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+    throw error;
+  }
+});
+
+/**
+ * @desc    Complete order
+ * @route   PUT /api/orders/:id/complete
+ * @access  Private
+ */
+export const completeOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const orderId = parseInt(id);
+
+  try {
+    const order = await completeOrderService(orderId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Order completed successfully',
+      data: mapOrderToResponse(order)
+    });
+  } catch (error) {
+    if (error.message === 'Order not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+    if (error.message.includes('Cannot complete')) {
       return res.status(400).json({
         success: false,
         message: error.message

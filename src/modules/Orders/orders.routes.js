@@ -3,7 +3,12 @@ import {
   getOrders,
   getOrder,
   createOrder,
-  updateOrderStatus
+  updateOrder,
+  deleteOrder,
+  updateOrderStatus,
+  approveOrder,
+  rejectOrder,
+  completeOrder
 } from './orders.controller.js';
 import { validation } from '../../middlewares/vakidation.middleware.js';
 import { isAuthenticated } from '../../middlewares/auth.middleware.js';
@@ -11,6 +16,7 @@ import {
   createOrderSchema,
   getOrdersSchema,
   getOrderSchema,
+  updateOrderSchema,
   updateOrderStatusSchema
 } from './orders.validation.js';
 
@@ -52,6 +58,27 @@ router.post(
   createOrder
 );
 
+// @route   PUT /api/orders/:id
+// @desc    Update order
+// @access  Private
+router.put(
+  '/:id',
+  isAuthenticated,
+  validation(getOrderSchema, 'params'),
+  validation(updateOrderSchema, 'body'),
+  updateOrder
+);
+
+// @route   DELETE /api/orders/:id
+// @desc    Delete order
+// @access  Private
+router.delete(
+  '/:id',
+  isAuthenticated,
+  validation(getOrderSchema, 'params'),
+  deleteOrder
+);
+
 // @route   PUT /api/orders/:id/status
 // @desc    Update order status
 // @access  Private
@@ -61,6 +88,36 @@ router.put(
   validation(getOrderSchema, 'params'),
   validation(updateOrderStatusSchema, 'body'),
   updateOrderStatus
+);
+
+// @route   PUT /api/orders/:id/approve
+// @desc    Approve order
+// @access  Private
+router.put(
+  '/:id/approve',
+  isAuthenticated,
+  validation(getOrderSchema, 'params'),
+  approveOrder
+);
+
+// @route   PUT /api/orders/:id/reject
+// @desc    Reject order
+// @access  Private
+router.put(
+  '/:id/reject',
+  isAuthenticated,
+  validation(getOrderSchema, 'params'),
+  rejectOrder
+);
+
+// @route   PUT /api/orders/:id/complete
+// @desc    Complete order
+// @access  Private
+router.put(
+  '/:id/complete',
+  isAuthenticated,
+  validation(getOrderSchema, 'params'),
+  completeOrder
 );
 
 export default router;

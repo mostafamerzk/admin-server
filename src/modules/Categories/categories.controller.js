@@ -1,11 +1,17 @@
 import { asyncHandler } from '../../utils/error handling/asyncHandler.js';
+import { uploadToCloudinary, deleteFromCloudinary } from '../../config/cloudinary.js';
 import {
   getCategoriesService,
   getCategoryByIdService,
   createCategoryService,
   updateCategoryService,
   deleteCategoryService,
-  getCategoryProductsService
+  banCategoryService,
+  unbanCategoryService,
+  updateCategoryStatusService,
+  getCategoryProductsService,
+  uploadCategoryImageService,
+  deleteCategoryImageService
 } from './categories.service.js';
 
 /**
@@ -21,9 +27,9 @@ const mapCategoryToResponse = (category) => ({
   id: category.ID,
   name: category.Name,
   description: category.Description,
-  status: 'active', // Default since Status field doesn't exist in current schema
+  status: category.Deleted ? 'inactive' : 'active', 
   productCount: category._count?.Products || 0,
-  image: null, // Default since Image field doesn't exist in current schema
+  image: category.imageUrl || null,
   createdAt: category.CreatedDate.toISOString(),
   updatedAt: category.UpdatedDate?.toISOString() || category.CreatedDate.toISOString()
 });
@@ -37,7 +43,7 @@ const mapProductToResponse = (product) => ({
   sku: product.SKU || '',
   price: parseFloat(product.Price) || 0,
   stock: product.Stock || 0,
-  status: 'active', // Default since Status field would need to be checked
+  status: product.Deleted ? 'inactive' : 'active',
   image: null, // Would need to get from Images table
   categoryId: `cat_${product.CategoryId}`,
   createdAt: product.CreatedDate.toISOString(),
@@ -69,12 +75,12 @@ export const getCategories = asyncHandler(async (req, res) => {
     message: 'Categories retrieved successfully',
     data: categories,
     pagination: {
-      currentPage: result.pagination.page,
+      page: result.pagination.page,
+      limit: result.pagination.limit,
+      total: result.pagination.total,
       totalPages: result.pagination.pages,
-      totalItems: result.pagination.total,
-      itemsPerPage: result.pagination.limit,
-      hasNextPage: result.pagination.page < result.pagination.pages,
-      hasPreviousPage: result.pagination.page > 1
+      hasNext: result.pagination.page < result.pagination.pages,
+      hasPrev: result.pagination.page > 1
     }
   });
 });
@@ -104,22 +110,55 @@ export const getCategory = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Create new category
+ * @desc    Create new category with optional image upload
  * @route   POST /api/categories
  * @access  Private
  */
 export const createCategory = asyncHandler(async (req, res) => {
   try {
-    const category = await createCategoryService(req.body);
+    // Extract image file from request if present
+    const imageFile = req.file || null;
+    const { imageUrl } = req.body;
+
+    // Validate that either image file or imageUrl is provided
+    if (!imageFile && !imageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Either image file or imageUrl is required'
+      });
+    }
+
+    // Create category with image file
+    const category = await createCategoryService(req.body, imageFile);
+
+    // Prepare response data
+    const responseData = {
+      ...mapCategoryToResponse(category),
+      ...(imageFile && {
+        imageUpload: {
+          originalName: imageFile.originalname,
+          size: imageFile.size,
+          mimeType: imageFile.mimetype
+        }
+      })
+    };
 
     res.status(201).json({
       success: true,
-      message: 'Category created successfully',
-      data: mapCategoryToResponse(category)
+      message: imageFile
+        ? 'Category created successfully with image'
+        : 'Category created successfully',
+      data: responseData
     });
   } catch (error) {
     if (error.message === 'Category name already exists') {
       return res.status(409).json({
+        success: false,
+        message: error.message
+      });
+    }
+    if (error.message.includes('Failed to upload image')) {
+      return res.status(400).json({
         success: false,
         message: error.message
       });
@@ -194,6 +233,78 @@ export const deleteCategory = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Ban category and all its products
+ * @route   PUT /api/categories/:id/ban
+ * @access  Private
+ */
+export const banCategory = asyncHandler(async (req, res) => {
+  const categoryId = req.params.id;
+
+  try {
+    const result = await banCategoryService(categoryId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Category and its products banned successfully',
+      data: {
+        category: mapCategoryToResponse(result.category),
+        bannedProductsCount: result.bannedProductsCount
+      }
+    });
+  } catch (error) {
+    if (error.message === 'Category not found') {
+      return res.status(404).json({
+        success: false,
+        message: error.message
+      });
+    }
+    if (error.message === 'Category is already banned') {
+      return res.status(409).json({
+        success: false,
+        message: error.message
+      });
+    }
+    throw error;
+  }
+});
+
+/**
+ * @desc    Unban category and all its products
+ * @route   PUT /api/categories/:id/unban
+ * @access  Private
+ */
+export const unbanCategory = asyncHandler(async (req, res) => {
+  const categoryId = req.params.id;
+
+  try {
+    const result = await unbanCategoryService(categoryId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Category and its products unbanned successfully',
+      data: {
+        category: mapCategoryToResponse(result.category),
+        unbannedProductsCount: result.unbannedProductsCount
+      }
+    });
+  } catch (error) {
+    if (error.message === 'Category not found') {
+      return res.status(404).json({
+        success: false,
+        message: error.message
+      });
+    }
+    if (error.message === 'Category is already active') {
+      return res.status(409).json({
+        success: false,
+        message: error.message
+      });
+    }
+    throw error;
+  }
+});
+
+/**
  * @desc    Update category status
  * @route   PUT /api/categories/:id/status
  * @access  Private
@@ -203,23 +314,40 @@ export const updateCategoryStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
 
   try {
-    // Since Status field doesn't exist in current schema, we'll just return success
-    // In a real implementation, this would update the status field
-    const category = await getCategoryByIdService(categoryId);
-    
-    if (!category) {
+    // Validate status parameter
+    if (!['active', 'inactive'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status must be either "active" or "inactive"'
+      });
+    }
+
+    // Update category status and cascade to products
+    const result = await updateCategoryStatusService(categoryId, status);
+
+    res.status(200).json({
+      success: true,
+      message: `Category status updated to ${status} successfully. ${result.updatedProductsCount} products were also updated.`,
+      data: {
+        category: mapCategoryToResponse(result.category),
+        updatedProductsCount: result.updatedProductsCount
+      }
+    });
+  } catch (error) {
+    if (error.message === 'Category not found') {
       return res.status(404).json({
         success: false,
         message: 'Category not found'
       });
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'Category status updated successfully',
-      data: mapCategoryToResponse(category)
-    });
-  } catch (error) {
+    if (error.message.includes('already')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+
     throw error;
   }
 });
@@ -257,12 +385,104 @@ export const getCategoryProducts = asyncHandler(async (req, res) => {
     message: 'Category products retrieved successfully',
     data: products,
     pagination: {
-      currentPage: result.pagination.page,
+      page: result.pagination.page,
+      limit: result.pagination.limit,
+      total: result.pagination.total,
       totalPages: result.pagination.pages,
-      totalItems: result.pagination.total,
-      itemsPerPage: result.pagination.limit,
-      hasNextPage: result.pagination.page < result.pagination.pages,
-      hasPreviousPage: result.pagination.page > 1
+      hasNext: result.pagination.page < result.pagination.pages,
+      hasPrev: result.pagination.page > 1
     }
   });
+});
+
+/**
+ * @desc    Upload category image
+ * @route   POST /api/categories/:id/image
+ * @access  Private
+ */
+export const uploadCategoryImage = asyncHandler(async (req, res) => {
+  const categoryId = req.params.id;
+  const categoryIdInt = parseInt(categoryId);
+
+  // Check if file was uploaded
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: 'No image file provided'
+    });
+  }
+
+  try {
+    // Upload image to Cloudinary
+    const publicId = `category_${categoryIdInt}_${Date.now()}`;
+    const result = await uploadToCloudinary(req.file.buffer, 'categories', publicId);
+
+    // Save image URL to database
+    const updatedCategory = await uploadCategoryImageService(categoryIdInt, result.secure_url);
+
+    res.status(200).json({
+      success: true,
+      message: 'Category image uploaded successfully',
+      data: {
+        imageUrl: result.secure_url,
+        publicId: result.public_id,
+        originalName: req.file.originalname,
+        category: mapCategoryToResponse(updatedCategory)
+      }
+    });
+  } catch (error) {
+    if (error.message === 'Category not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    // Handle upload errors
+    if (error.message.includes('Failed to upload')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    throw error;
+  }
+});
+
+/**
+ * @desc    Delete category image
+ * @route   DELETE /api/categories/:id/image
+ * @access  Private
+ */
+export const deleteCategoryImage = asyncHandler(async (req, res) => {
+  const categoryId = req.params.id;
+  const categoryIdInt = parseInt(categoryId);
+
+  try {
+    // Delete image from database and Cloudinary
+    const updatedCategory = await deleteCategoryImageService(categoryIdInt);
+
+    res.status(200).json({
+      success: true,
+      message: 'Category image deleted successfully',
+      data: mapCategoryToResponse(updatedCategory)
+    });
+  } catch (error) {
+    if (error.message === 'Category not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    if (error.message === 'Category has no image to delete') {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    throw error;
+  }
 });

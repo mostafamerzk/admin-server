@@ -144,10 +144,10 @@ export const getOrdersSchema = Joi.object({
   
   status: Joi.number()
     .integer()
-    .valid(0, 1, 2, 3, 4) // pending, processing, shipped, delivered, cancelled
+    .valid(0, 1, 2, 3) // pending, approved, rejected, completed
     .optional()
     .messages({
-      'any.only': 'Status must be one of: 0 (pending), 1 (processing), 2 (shipped), 3 (delivered), 4 (cancelled)'
+      'any.only': 'Status must be one of: 0 (pending), 1 (approved), 2 (rejected), 3 (completed)'
     }),
   
   customerId: Joi.string()
@@ -205,19 +205,66 @@ export const getOrderSchema = Joi.object({
     })
 });
 
+// Update order validation schema
+export const updateOrderSchema = Joi.object({
+  SupplierId: Joi.string()
+    .custom(isValidGuid)
+    .optional()
+    .messages({
+      'any.invalid': 'Invalid Supplier ID format'
+    }),
+
+  DeliveryFees: Joi.number()
+    .precision(2)
+    .min(0)
+    .max(999999.99)
+    .optional()
+    .messages({
+      'number.base': 'Delivery fees must be a number',
+      'number.min': 'Delivery fees cannot be negative',
+      'number.max': 'Delivery fees cannot exceed 999,999.99'
+    }),
+
+  Discount: Joi.number()
+    .precision(2)
+    .min(0)
+    .max(999999.99)
+    .optional()
+    .messages({
+      'number.base': 'Discount must be a number',
+      'number.min': 'Discount cannot be negative',
+      'number.max': 'Discount cannot exceed 999,999.99'
+    }),
+
+  Notes: Joi.string()
+    .max(1000)
+    .optional()
+    .allow('')
+    .messages({
+      'string.max': 'Notes must not exceed 1000 characters'
+    }),
+
+  PaymentMethod: Joi.string()
+    .valid('cash', 'card', 'bank_transfer', 'digital_wallet', 'credit_card', 'paypal', 'other')
+    .optional()
+    .messages({
+      'any.only': 'Payment method must be one of: cash, card, bank_transfer, digital_wallet, credit_card, paypal, other'
+    })
+});
+
 // Update order status validation schema
 export const updateOrderStatusSchema = Joi.object({
   status: Joi.number()
     .integer()
-    .valid(0, 1, 2, 3, 4) // pending, processing, shipped, delivered, cancelled
+    .valid(0, 1, 2, 3) // pending, approved, rejected, completed
     .required()
     .messages({
       'number.base': 'Status must be a number',
       'number.integer': 'Status must be an integer',
-      'any.only': 'Status must be one of: 0 (pending), 1 (processing), 2 (shipped), 3 (delivered), 4 (cancelled)',
+      'any.only': 'Status must be one of: 0 (pending), 1 (approved), 2 (rejected), 3 (completed)',
       'any.required': 'Status is required'
     }),
-  
+
   Notes: Joi.string()
     .max(1000)
     .optional()

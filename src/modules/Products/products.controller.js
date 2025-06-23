@@ -6,6 +6,7 @@ import {
   createProductService,
   updateProductService,
   deleteProductService,
+  updateProductStatusService,
   uploadProductImagesService,
   deleteProductImageService,
   deleteProductImageByUrlService
@@ -18,7 +19,7 @@ import {
  */
 
 /**
- * Map product data to response format
+ * Map product data to response format matching frontend expectations
  */
 const mapProductToResponse = (product) => {
   // Map images
@@ -72,27 +73,34 @@ const mapProductToResponse = (product) => {
     createdAt: review.CreatedDate
   })) || [];
 
+  // Determine product status based on stock and deleted flag
+  let status = 'active';
+  if (product.Deleted) {
+    status = 'inactive';
+  } else if (!product.Stock || product.Stock <= 0) {
+    status = 'out_of_stock';
+  }
+
   return {
     id: product.ID,
-    name: product.Name,
-    description: product.Description,
-    price: parseFloat(product.Price),
-    stock: product.Stock,
-    minimumStock: product.MinimumStock,
-    sku: product.SKU,
-    categoryId: product.CategoryId,
-    supplierId: product.SupplierId,
-    customerId: product.CustomerId,
+    name: product.Name || '',
+    sku: product.SKU || '',
+    price: parseFloat(product.Price) || 0,
+    stock: product.Stock || 0,
+    minimumStock: product.MinimumStock || 0,
+    status,
+    description: product.Description || null,
     image: mainImage,
     images: images,
+    categoryId: product.CategoryId,
     category: category,
+    supplierId: product.SupplierId || null,
     supplier: supplier,
-    customer: customer,
+    customerId: product.CustomerId || null,
     attributes: attributes,
     variants: variants,
-    reviews: reviews,
-    createdAt: product.CreatedDate,
-    updatedAt: product.UpdatedDate
+    createdAt: product.CreatedDate.toISOString(),
+    updatedAt: product.UpdatedDate?.toISOString() || product.CreatedDate.toISOString()
   };
 };
 
@@ -109,7 +117,8 @@ export const getProducts = asyncHandler(async (req, res) => {
     category: req.query.category ? parseInt(req.query.category) : undefined,
     supplierId: req.query.supplierId || undefined,
     inStock: req.query.inStock !== undefined ? req.query.inStock === 'true' : undefined,
-    sort: req.query.sort || 'CreatedDate',
+    // deleted: req.query.deleted !== undefined ? req.query.deleted === 'true' : undefined,
+    sort: req.query.sort || 'createdAt',
     order: req.query.order || 'desc'
   };
 
@@ -123,12 +132,12 @@ export const getProducts = asyncHandler(async (req, res) => {
     message: 'Products retrieved successfully',
     data: products,
     pagination: {
-      currentPage: result.pagination.page,
-      totalPages: result.pagination.pages,
-      totalItems: result.pagination.total,
-      itemsPerPage: result.pagination.limit,
-      hasNextPage: result.pagination.page < result.pagination.pages,
-      hasPreviousPage: result.pagination.page > 1
+      page: result.pagination.page,
+      limit: result.pagination.limit,
+      total: result.pagination.total,
+      totalPages: result.pagination.totalPages,
+      hasNext: result.pagination.hasNext,
+      hasPrev: result.pagination.hasPrev
     }
   });
 });
@@ -421,6 +430,41 @@ export const deleteProductImage = asyncHandler(async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Image not found or does not belong to this product'
+      });
+    }
+    throw error;
+  }
+});
+
+/**
+ * @desc    Update product status (active/inactive)
+ * @route   PUT /api/products/:id/status
+ * @access  Private
+ */
+export const updateProductStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const productId = parseInt(id);
+
+  try {
+    const product = await updateProductStatusService(productId, status);
+
+    res.status(200).json({
+      success: true,
+      message: `Product status updated to ${status} successfully`,
+      data: mapProductToResponse(product)
+    });
+  } catch (error) {
+    if (error.message === 'Product not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+    if (error.message.includes('already in this status')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
     throw error;

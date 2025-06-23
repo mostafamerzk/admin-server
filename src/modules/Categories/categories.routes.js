@@ -5,11 +5,17 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  banCategory,
+  unbanCategory,
   updateCategoryStatus,
-  getCategoryProducts
+  getCategoryProducts,
+  uploadCategoryImage,
+  deleteCategoryImage
 } from './categories.controller.js';
 import { validation } from '../../middlewares/vakidation.middleware.js';
 import { isAuthenticated } from '../../middlewares/auth.middleware.js';
+import { uploadCloudFile } from '../../utils/multer/cloud.multer.js';
+import { handleMulterError } from '../../middlewares/multer-error.middleware.js';
 import {
   createCategorySchema,
   updateCategorySchema,
@@ -48,11 +54,13 @@ router.get(
 );
 
 // @route   POST /api/categories
-// @desc    Create new category
+// @desc    Create new category with optional image upload
 // @access  Private
 router.post(
   '/',
   isAuthenticated,
+  uploadCloudFile(['jpg', 'jpeg', 'png', 'gif', 'webp']).single('image'),
+  handleMulterError,
   validation(createCategorySchema),
   createCategory
 );
@@ -78,6 +86,26 @@ router.delete(
   deleteCategory
 );
 
+// @route   PUT /api/categories/:id/ban
+// @desc    Ban category and all its products
+// @access  Private
+router.put(
+  '/:id/ban',
+  isAuthenticated,
+  validation(getCategorySchema, 'params'),
+  banCategory
+);
+
+// @route   PUT /api/categories/:id/unban
+// @desc    Unban category and all its products
+// @access  Private
+router.put(
+  '/:id/unban',
+  isAuthenticated,
+  validation(getCategorySchema, 'params'),
+  unbanCategory
+);
+
 // @route   PUT /api/categories/:id/status
 // @desc    Update category status
 // @access  Private
@@ -98,6 +126,28 @@ router.get(
   validation(getCategoryProductsSchema, 'params'),
   validation(getCategoriesSchema, 'query'), // Reuse pagination validation
   getCategoryProducts
+);
+
+// @route   POST /api/categories/:id/image
+// @desc    Upload category image
+// @access  Private
+router.post(
+  '/:id/upload-image',
+  isAuthenticated,
+  validation(getCategorySchema, 'params'),
+  uploadCloudFile(['jpg', 'jpeg', 'png', 'gif', 'webp']).single('image'),
+  handleMulterError,
+  uploadCategoryImage
+);
+
+// @route   DELETE /api/categories/:id/image
+// @desc    Delete category image
+// @access  Private
+router.delete(
+  '/:id/image',
+  isAuthenticated,
+  validation(getCategorySchema, 'params'),
+  deleteCategoryImage
 );
 
 export default router;
