@@ -5,12 +5,12 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
-  banCategory,
-  unbanCategory,
+  // banCategory,
+  // unbanCategory,
   updateCategoryStatus,
-  getCategoryProducts,
-  uploadCategoryImage,
-  deleteCategoryImage
+  // getCategoryProducts,
+  // uploadCategoryImage,
+  // deleteCategoryImage
 } from './categories.controller.js';
 import { validation } from '../../middlewares/vakidation.middleware.js';
 import { isAuthenticated } from '../../middlewares/auth.middleware.js';
@@ -22,7 +22,7 @@ import {
   getCategoriesSchema,
   getCategorySchema,
   updateCategoryStatusSchema,
-  getCategoryProductsSchema
+  // getCategoryProductsSchema
 } from './categories.validation.js';
 
 const router = Router();
@@ -66,11 +66,13 @@ router.post(
 );
 
 // @route   PUT /api/categories/:id
-// @desc    Update category
+// @desc    Update category with optional image upload
 // @access  Private
 router.put(
   '/:id',
   isAuthenticated,
+  uploadCloudFile(['jpg', 'jpeg', 'png', 'gif', 'webp']).single('image'),
+  handleMulterError,
   validation(getCategorySchema, 'params'),
   validation(updateCategorySchema),
   updateCategory
@@ -86,25 +88,25 @@ router.delete(
   deleteCategory
 );
 
-// @route   PUT /api/categories/:id/ban
-// @desc    Ban category and all its products
-// @access  Private
-router.put(
-  '/:id/ban',
-  isAuthenticated,
-  validation(getCategorySchema, 'params'),
-  banCategory
-);
+// // @route   PUT /api/categories/:id/ban
+// // @desc    Ban category and all its products
+// // @access  Private
+// router.put(
+//   '/:id/ban',
+//   isAuthenticated,
+//   validation(getCategorySchema, 'params'),
+//   banCategory
+// );
 
-// @route   PUT /api/categories/:id/unban
-// @desc    Unban category and all its products
-// @access  Private
-router.put(
-  '/:id/unban',
-  isAuthenticated,
-  validation(getCategorySchema, 'params'),
-  unbanCategory
-);
+// // @route   PUT /api/categories/:id/unban
+// // @desc    Unban category and all its products
+// // @access  Private
+// router.put(
+//   '/:id/unban',
+//   isAuthenticated,
+//   validation(getCategorySchema, 'params'),
+//   unbanCategory
+// );
 
 // @route   PUT /api/categories/:id/status
 // @desc    Update category status
@@ -117,37 +119,37 @@ router.put(
   updateCategoryStatus
 );
 
-// @route   GET /api/categories/:id/products
-// @desc    Get category products
-// @access  Private
-router.get(
-  '/:id/products',
-  isAuthenticated,
-  validation(getCategoryProductsSchema, 'params'),
-  validation(getCategoriesSchema, 'query'), // Reuse pagination validation
-  getCategoryProducts
-);
+// // @route   GET /api/categories/:id/products
+// // @desc    Get category products
+// // @access  Private
+// router.get(
+//   '/:id/products',
+//   isAuthenticated,
+//   validation(getCategoryProductsSchema, 'params'),
+//   validation(getCategoriesSchema, 'query'), // Reuse pagination validation
+//   getCategoryProducts
+// );
 
-// @route   POST /api/categories/:id/image
+// @route   POST /api/categories/:id/upload-image
 // @desc    Upload category image
 // @access  Private
-router.post(
-  '/:id/upload-image',
-  isAuthenticated,
-  validation(getCategorySchema, 'params'),
-  uploadCloudFile(['jpg', 'jpeg', 'png', 'gif', 'webp']).single('image'),
-  handleMulterError,
-  uploadCategoryImage
-);
+// router.post(
+//   '/:id/upload-image',
+//   isAuthenticated,
+//   validation(getCategorySchema, 'params'),
+//   uploadCloudFile(['jpg', 'jpeg', 'png', 'gif', 'webp']).single('image'),
+//   handleMulterError,
+//   uploadCategoryImage
+// );
 
 // @route   DELETE /api/categories/:id/image
 // @desc    Delete category image
 // @access  Private
-router.delete(
-  '/:id/image',
-  isAuthenticated,
-  validation(getCategorySchema, 'params'),
-  deleteCategoryImage
-);
+// router.delete(
+//   '/:id/image',
+//   isAuthenticated,
+//   validation(getCategorySchema, 'params'),
+//   deleteCategoryImage
+// );
 
 export default router;

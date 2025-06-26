@@ -86,7 +86,9 @@ export const getProductSchema = Joi.object({
       'number.base': 'Product ID must be a number',
       'number.integer': 'Product ID must be an integer',
       'number.min': 'Product ID must be greater than 0'
-    })
+    }),
+      file: Joi.any().optional()
+
 });
 
 // Create product validation schema
@@ -250,7 +252,9 @@ export const updateProductSchema = Joi.object({
       'string.min': 'Product name must be at least 1 character long',
       'string.max': 'Product name must not exceed 255 characters'
     }),
-  
+
+  file: Joi.any().optional(),
+
   Description: Joi.string()
     .max(1000)
     .optional()
@@ -258,7 +262,7 @@ export const updateProductSchema = Joi.object({
     .messages({
       'string.max': 'Description must not exceed 1000 characters'
     }),
-  
+
   Price: Joi.number()
     .precision(2)
     .min(0)
@@ -267,7 +271,7 @@ export const updateProductSchema = Joi.object({
       'number.base': 'Price must be a valid number',
       'number.min': 'Price must be greater than or equal to 0'
     }),
-  
+
   Stock: Joi.number()
     .integer()
     .min(0)
@@ -277,7 +281,7 @@ export const updateProductSchema = Joi.object({
       'number.integer': 'Stock must be an integer',
       'number.min': 'Stock must be greater than or equal to 0'
     }),
-  
+
   MinimumStock: Joi.number()
     .integer()
     .min(0)
@@ -287,7 +291,7 @@ export const updateProductSchema = Joi.object({
       'number.integer': 'Minimum stock must be an integer',
       'number.min': 'Minimum stock must be greater than or equal to 0'
     }),
-  
+
   CategoryId: Joi.number()
     .integer()
     .min(1)
@@ -297,7 +301,7 @@ export const updateProductSchema = Joi.object({
       'number.integer': 'Category ID must be an integer',
       'number.min': 'Category ID must be greater than 0'
     }),
-  
+
   SupplierId: Joi.string()
     .custom(isValidGuid)
     .optional()
@@ -305,7 +309,7 @@ export const updateProductSchema = Joi.object({
     .messages({
       'any.invalid': 'Invalid supplier ID format'
     }),
-  
+
   CustomerId: Joi.string()
     .custom(isValidGuid)
     .optional()
@@ -413,7 +417,28 @@ export const updateProductSchema = Joi.object({
           })
       })
     )
+    .optional(),
+
+  // Images to delete (array of URLs or single URL)
+  imagesToDelete: Joi.alternatives()
+    .try(
+      Joi.array().items(
+        Joi.string()
+          .uri()
+          .messages({
+            'string.uri': 'Each image URL must be a valid URL'
+          })
+      ),
+      Joi.string()
+        .uri()
+        .messages({
+          'string.uri': 'Image URL must be a valid URL'
+        })
+    )
     .optional()
+    .messages({
+      'alternatives.match': 'imagesToDelete must be a valid URL or array of URLs'
+    })
 });
 
 // Delete image validation schema
@@ -437,7 +462,7 @@ export const deleteImageByUrlSchema = Joi.object({
     .required()
     .messages({
       'any.required': 'Image URL is required',
-      'string.uri': 'Image URL must be a valid URL'
+      'string.uri': 'Image url must be a valid URL'
     })
 });
 

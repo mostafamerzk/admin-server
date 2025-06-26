@@ -50,6 +50,7 @@ model Categories {
   UpdatedDate DateTime?
   Description String     @default("N'", map: "DF__Categorie__Descr__7D439ABD") @db.NVarChar(Max)
   Name        String     @default("N'", map: "DF__Categories__Name__7E37BEF6") @db.NVarChar(Max)
+  imageUrl    String     @default("N'", map: "DF__Categorie__image__1F63A897") @db.NVarChar(Max)
   Products    Products[]
 }
 
@@ -78,18 +79,18 @@ model Images {
 }
 
 model Notification {
-  ID          Int        @id(map: "PK_Notification") @default(autoincrement())
-  Title       String?    @db.NVarChar(Max)
-  Body        String?    @db.NVarChar(Max)
-  SupplierId  String?    @db.NVarChar(450)
+  ID          Int       @id(map: "PK_Notification") @default(autoincrement())
+  Title       String?   @db.NVarChar(Max)
+  Body        String?   @db.NVarChar(Max)
+  UserId      String?   @db.NVarChar(450)
   IsRead      Boolean
-  Type        String?    @db.NVarChar(Max)
+  Type        String?   @db.NVarChar(Max)
   Deleted     Boolean
   CreatedDate DateTime
   UpdatedDate DateTime?
-  Suppliers   Suppliers? @relation(fields: [SupplierId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Notification_Suppliers_SupplierId")
+  Users       Users?    @relation(fields: [UserId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Notification_Users_UserId")
 
-  @@index([SupplierId], map: "IX_Notification_SupplierId")
+  @@index([UserId], map: "IX_Notification_UserId")
 }
 
 model Order {
@@ -186,7 +187,6 @@ model Suppliers {
   Id                 String              @id(map: "PK_Suppliers") @db.NVarChar(450)
   ActivityCategoryId Int?
   IsVerified         Boolean             @default(dbgenerated("CONVERT([bit],(0))"), map: "DF__Suppliers__IsVer__1E6F845E")
-  Notification       Notification[]
   Order              Order[]
   PaymentMethods     PaymentMethods[]
   Products           Products[]
@@ -261,6 +261,7 @@ model Users {
   ImageUrl             String?               @db.NVarChar(Max)
   AspNetUserTokens     AspNetUserTokens[]
   Customer             Customer?
+  Notification         Notification[]
   Suppliers            Suppliers?
   UserClaims           UserClaims[]
   UserLogins           UserLogins[]

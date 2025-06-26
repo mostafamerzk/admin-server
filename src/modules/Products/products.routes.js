@@ -12,7 +12,7 @@ import {
 import { validation } from '../../middlewares/vakidation.middleware.js';
 import { isAuthenticated } from '../../middlewares/auth.middleware.js';
 import { handleMulterError } from '../../middlewares/multer-error.middleware.js';
-import { uploadCloudFile, fileValidations } from '../../utils/multer/cloud.multer.js';
+import { uploadCloudFile } from '../../utils/multer/cloud.multer.js';
 import {
   getProductsSchema,
   getProductSchema,
@@ -52,21 +52,25 @@ router.get(
 );
 
 // @route   POST /api/products
-// @desc    Create new product
+// @desc    Create new product with optional image uploads
 // @access  Private
 router.post(
   '/',
   isAuthenticated,
+  uploadCloudFile(['jpg', 'jpeg', 'png', 'gif', 'webp']).array('images', 10),
+  handleMulterError,
   validation(createProductSchema),
   createProduct
 );
 
 // @route   PUT /api/products/:id
-// @desc    Update existing product
+// @desc    Update existing product with optional image operations
 // @access  Private
 router.put(
   '/:id',
   isAuthenticated,
+  uploadCloudFile(['jpg', 'jpeg', 'png', 'gif', 'webp']).array('images', 10),
+  handleMulterError,
   validation(getProductSchema, 'params'),
   validation(updateProductSchema, 'body'),
   updateProduct

@@ -133,10 +133,15 @@ Create a new category with optional image upload in a single request.
 }
 ```
 
-### 4. Update Category
+### 4. Update Category (Atomic Operation)
 **PUT** `/api/categories/:id`
 
-Update an existing category. If a new image is provided, the old image will be automatically deleted from Cloudinary.
+Update an existing category with optional image upload in a single atomic operation. This endpoint handles both data and image updates efficiently:
+
+- **Atomic operation**: All updates (data + image) happen in a single database transaction
+- **Automatic cleanup**: Old images are deleted only after successful database update
+- **Rollback support**: If database update fails, newly uploaded images are automatically cleaned up
+- **Backward compatible**: Can update text fields only, image only, or both together
 
 **Parameters:**
 - `id` (number, required): Category ID
@@ -146,8 +151,32 @@ Update an existing category. If a new image is provided, the old image will be a
 - `description` (string, optional): Category description (max 1000 characters)
 - `status` (string, optional): Category status ('active' or 'inactive')
 - `image` (file, optional): New category image file (jpg, jpeg, png, gif, webp, max 5MB)
+- `imageUrl` (string, optional): Image URL (use `null` to remove existing image)
 
-**Response:**
+**Response (with image upload):**
+```json
+{
+  "success": true,
+  "message": "Category updated successfully with new image",
+  "data": {
+    "id": 1,
+    "name": "Electronics Updated",
+    "description": "Updated description",
+    "status": "active",
+    "image": "https://res.cloudinary.com/your-cloud/image/upload/v1234567890/categories/category_1_new.jpg",
+    "productCount": 25,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-02T00:00:00.000Z",
+    "imageUpload": {
+      "originalName": "new-category-image.jpg",
+      "size": 245760,
+      "mimeType": "image/jpeg"
+    }
+  }
+}
+```
+
+**Response (text-only update):**
 ```json
 {
   "success": true,
@@ -157,7 +186,7 @@ Update an existing category. If a new image is provided, the old image will be a
     "name": "Electronics Updated",
     "description": "Updated description",
     "status": "active",
-    "image": "https://res.cloudinary.com/your-cloud/image/upload/v1234567890/categories/category_1_new.jpg",
+    "image": "https://res.cloudinary.com/your-cloud/image/upload/v1234567890/categories/category_1.jpg",
     "productCount": 25,
     "createdAt": "2024-01-01T00:00:00.000Z",
     "updatedAt": "2024-01-02T00:00:00.000Z"
@@ -211,6 +240,18 @@ Get all products in a specific category.
 }
 ```
 
+## Legacy Image Endpoints (Backward Compatibility)
+
+For backward compatibility, separate image upload/delete endpoints are still available:
+
+### Upload Category Image (Legacy)
+**POST** `/api/categories/:id/upload-image`
+
+### Delete Category Image (Legacy)
+**DELETE** `/api/categories/:id/image`
+
+**Note**: The atomic update endpoint (PUT `/api/categories/:id`) is recommended for new implementations as it provides better performance, consistency, and error handling.
+
 ## Image Upload Specifications
 
 - **Supported formats**: jpg, jpeg, png, gif, webp
@@ -218,6 +259,7 @@ Get all products in a specific category.
 - **Storage**: Cloudinary cloud storage
 - **Folder**: Images are stored in the `categories` folder
 - **Automatic cleanup**: Old images are automatically deleted when updated or category is deleted
+- **Atomic operations**: Main update endpoint ensures data consistency with proper rollback
 
 ## Error Responses
 

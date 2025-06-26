@@ -168,18 +168,39 @@ export const getProduct = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Create new product
+ * @desc    Create new product with optional image uploads
  * @route   POST /api/products
  * @access  Private
  */
 export const createProduct = asyncHandler(async (req, res) => {
   try {
-    const product = await createProductService(req.body);
+    // Extract image files from multer (if any)
+    const imageFiles = req.files || null;
+
+    // Create product with image files
+    const product = await createProductService(req.body, imageFiles);
+
+    // Prepare response data
+    const responseData = {
+      ...mapProductToResponse(product),
+      ...(imageFiles && imageFiles.length > 0 && {
+        imageUpload: {
+          uploadedCount: imageFiles.length,
+          images: imageFiles.map(file => ({
+            originalName: file.originalname,
+            size: file.size,
+            mimeType: file.mimetype
+          }))
+        }
+      })
+    };
 
     res.status(201).json({
       success: true,
-      message: 'Product created successfully',
-      data: mapProductToResponse(product)
+      message: imageFiles && imageFiles.length > 0
+        ? `Product created successfully with ${imageFiles.length} image(s)`
+        : 'Product created successfully',
+      data: responseData
     });
   } catch (error) {
     if (error.message === 'Category not found') {
@@ -200,12 +221,18 @@ export const createProduct = asyncHandler(async (req, res) => {
         message: 'Customer not found'
       });
     }
+    if (error.message.includes('Failed to upload')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
     throw error;
   }
 });
 
 /**
- * @desc    Update existing product
+ * @desc    Update existing product with optional image operations
  * @route   PUT /api/products/:id
  * @access  Private
  */
@@ -214,12 +241,54 @@ export const updateProduct = asyncHandler(async (req, res) => {
   const productId = parseInt(id);
 
   try {
-    const product = await updateProductService(productId, req.body);
+    // Extract image files from multer (if any)
+    const imageFiles = req.files || null;
+
+    // Extract images to delete from request body
+    const imagesToDelete = req.body.imagesToDelete ?
+      (Array.isArray(req.body.imagesToDelete) ? req.body.imagesToDelete : [req.body.imagesToDelete]) :
+      null;
+
+    // Remove imagesToDelete from body to avoid passing it to the service as a product field
+    const { imagesToDelete: _, ...updateData } = req.body;
+
+    // Update product with image operations
+    const product = await updateProductService(productId, updateData, imageFiles, imagesToDelete);
+
+    // Prepare response data
+    const responseData = {
+      ...mapProductToResponse(product),
+      ...(imageFiles && imageFiles.length > 0 && {
+        imageUpload: {
+          uploadedCount: imageFiles.length,
+          images: imageFiles.map(file => ({
+            originalName: file.originalname,
+            size: file.size,
+            mimeType: file.mimetype
+          }))
+        }
+      }),
+      ...(imagesToDelete && imagesToDelete.length > 0 && {
+        imagesDeletion: {
+          deletedCount: imagesToDelete.length,
+          deletedUrls: imagesToDelete
+        }
+      })
+    };
 
     res.status(200).json({
       success: true,
-      message: 'Product updated successfully',
-      data: mapProductToResponse(product)
+      message: (() => {
+        const parts = ['Product updated successfully'];
+        if (imageFiles && imageFiles.length > 0) {
+          parts.push(`with ${imageFiles.length} new image(s)`);
+        }
+        if (imagesToDelete && imagesToDelete.length > 0) {
+          parts.push(`and ${imagesToDelete.length} image(s) deleted`);
+        }
+        return parts.join(' ');
+      })(),
+      data: responseData
     });
   } catch (error) {
     if (error.message === 'Product not found') {
@@ -244,6 +313,12 @@ export const updateProduct = asyncHandler(async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Customer not found'
+      });
+    }
+    if (error.message.includes('Failed to upload')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
     throw error;

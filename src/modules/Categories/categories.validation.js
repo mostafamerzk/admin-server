@@ -24,11 +24,6 @@ export const createCategorySchema = Joi.object({
     'any.only': 'Status must be either active or inactive'
   }),
 
-  // Image URL field for when image is provided as URL string instead of file
-  imageUrl: Joi.string().uri().optional().messages({
-    'string.uri': 'Image URL must be a valid URL'
-  }),
-
   // File field for image uploads (added by multer middleware)
   file: Joi.any().optional()
 
@@ -51,9 +46,13 @@ export const updateCategorySchema = Joi.object({
 
   status: Joi.string().valid('active', 'inactive').optional().messages({
     'any.only': 'Status must be either active or inactive'
-  })
+  }),
 
-  // Note: Image uploads are handled by separate endpoint
+  // File field for image uploads (added by multer middleware)
+  file: Joi.any().optional()
+
+  // Note: Image file uploads are now handled in the same endpoint via multer
+  // Either image file or imageUrl can be provided, or neither for text-only updates
 });
 
 // Get categories validation schema (query parameters)
@@ -95,7 +94,9 @@ export const getCategorySchema = Joi.object({
     'number.integer': 'Category ID must be an integer',
     'number.positive': 'Category ID must be positive',
     'any.required': 'Category ID is required'
-  })
+  }),
+  file: Joi.any().optional()
+
 });
 
 // Update category status validation schema
